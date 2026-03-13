@@ -517,8 +517,12 @@ export default function Home() {
         playerIdRef.current = data.id;
         setPlayerName(data.name);
         playerNameRef.current = data.name;
+
         setTotalHits(data.total_hits || 0);
         totalHitsRef.current = data.total_hits || 0;
+
+        // FIX BUG DOUBLE HIT
+        lastSavedHitsRef.current = data.total_hits || 0;
       } else {
         localStorage.removeItem("playerName_v2");
         resetPlayerState();
@@ -1216,6 +1220,8 @@ export default function Home() {
     };
   }, []);
 
+  const savingRef = useRef(false);
+
   const saveHitsToSupabase = useCallback(
     async (playerId: string, amount: number) => {
       try {
@@ -1288,8 +1294,13 @@ export default function Home() {
       saveTimerRef.current = setTimeout(() => {
         const amount = totalHitsRef.current - lastSavedHitsRef.current;
 
-        if (amount > 0 && playerIdRef.current) {
-          saveHitsToSupabase(playerIdRef.current, amount);
+        if (amount > 0 && playerIdRef.current && !savingRef.current) {
+          savingRef.current = true;
+
+          saveHitsToSupabase(playerIdRef.current, amount).finally(() => {
+            savingRef.current = false;
+          });
+
           lastSavedHitsRef.current = totalHitsRef.current;
         }
       }, 800);
@@ -1456,8 +1467,12 @@ export default function Home() {
         playerIdRef.current = inserted.id;
         setPlayerName(inserted.name);
         playerNameRef.current = inserted.name;
+
         setTotalHits(inserted.total_hits || 0);
         totalHitsRef.current = inserted.total_hits || 0;
+
+        // FIX BUG DOUBLE HIT
+        lastSavedHitsRef.current = inserted.total_hits || 0;
       }
 
       setShowNameModal(false);
