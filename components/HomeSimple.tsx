@@ -480,6 +480,7 @@ export default function Home() {
   const [playerName, setPlayerName] = useState<string | null>(null);
   const playerNameRef = useRef<string | null>(null);
   const [totalHits, setTotalHits] = useState(0);
+  const lastSavedHitsRef = useRef(0);
   const totalHitsRef = useRef(0);
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameChecking, setNameChecking] = useState(false);
@@ -1215,19 +1216,23 @@ export default function Home() {
     };
   }, []);
 
-  const saveHitsToSupabase = useCallback(async (playerId: string) => {
-    try {
-      const { error } = await supabase.rpc("increment_hits", {
-        player_id: playerId,
-      });
+  const saveHitsToSupabase = useCallback(
+    async (playerId: string, amount: number) => {
+      try {
+        const { error } = await supabase.rpc("increment_hits", {
+          player_id: playerId,
+          amount: amount,
+        });
 
-      if (error) {
-        console.error("Update hits error:", error);
+        if (error) {
+          console.error("Update hits error:", error);
+        }
+      } catch (err) {
+        console.error("Update hits exception:", err);
       }
-    } catch (err) {
-      console.error("Update hits exception:", err);
-    }
-  }, []);
+    },
+    [],
+  );
 
   // ── Hit handler ──────────────────────────────────────────────────────────
   const handleHitRef = useRef<((x: number, y: number) => void) | null>(null);
@@ -1281,7 +1286,12 @@ export default function Home() {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 
       saveTimerRef.current = setTimeout(() => {
-        saveHitsToSupabase(playerIdRef.current!);
+        const amount = totalHitsRef.current - lastSavedHitsRef.current;
+
+        if (amount > 0 && playerIdRef.current) {
+          saveHitsToSupabase(playerIdRef.current, amount);
+          lastSavedHitsRef.current = totalHitsRef.current;
+        }
       }, 800);
     }
 
@@ -1370,7 +1380,12 @@ export default function Home() {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (playerIdRef.current) {
-        saveHitsToSupabase(playerIdRef.current!);
+        const amount = totalHitsRef.current - lastSavedHitsRef.current;
+
+        if (amount > 0) {
+          saveHitsToSupabase(playerIdRef.current, amount);
+          lastSavedHitsRef.current = totalHitsRef.current;
+        }
       }
     };
 
@@ -1384,7 +1399,12 @@ export default function Home() {
   useEffect(() => {
     const handleHidden = () => {
       if (document.visibilityState === "hidden" && playerIdRef.current) {
-        saveHitsToSupabase(playerIdRef.current!);
+        const amount = totalHitsRef.current - lastSavedHitsRef.current;
+
+        if (amount > 0) {
+          saveHitsToSupabase(playerIdRef.current, amount);
+          lastSavedHitsRef.current = totalHitsRef.current;
+        }
       }
     };
 
